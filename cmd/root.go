@@ -3,10 +3,11 @@ package cmd
 import (
 	"fmt"
 
+	"github.com/k3rn3l-p4n1c/goaway/version"
 	"github.com/spf13/cobra"
 )
 
-func noArgs(cmd *cobra.Command, args []string) error {
+func noArgs(_ *cobra.Command, args []string) error {
 	if len(args) == 0 {
 		return nil
 	}
@@ -24,6 +25,8 @@ var RootCmd = &cobra.Command{
 }
 
 func init() {
+	RootCmd.AddCommand(optimizeCmd)
+	RootCmd.AddCommand(version.Cmd)
 }
 
 func Execute() {

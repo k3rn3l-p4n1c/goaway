@@ -29,6 +29,10 @@
   name = "github.com/spf13/cobra"
   version = "0.0.3"
 
+[[constraint]]
+  name = "github.com/MaxHalford/gago"
+  revision = "6c17807002170d22f9726b6acd7420bbd46e7468"
+
 [prune]
   go-tests = true
   unused-packages = true

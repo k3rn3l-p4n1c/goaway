@@ -2,8 +2,8 @@ package main
 
 import (
 	"fmt"
-	"os"
 	"github.com/k3rn3l-p4n1c/goaway/cmd"
+	"os"
 )
 
 func main() {
