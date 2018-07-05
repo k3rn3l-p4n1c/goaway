@@ -13,6 +13,12 @@
   version = "v1.0"
 
 [[projects]]
+  branch = "master"
+  name = "github.com/jinzhu/copier"
+  packages = ["."]
+  revision = "7e38e58719c33e0d44d585c4ab477a30f8cb82dd"
+
+[[projects]]
   name = "github.com/spf13/cobra"
   packages = ["."]
   revision = "ef82de70bb3f60c65fb8eebacbb2d122ef517385"
@@ -39,6 +45,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "c25b9d30149d2c02c16f483b688df8f5b4f6315eb2cac5e12d23e01e562f976a"
+  inputs-digest = "b306595cfeae11b99559a032c80dd7f65a672c4e66a531f63de0f82c6cc56250"
   solver-name = "gps-cdcl"
   solver-version = 1
