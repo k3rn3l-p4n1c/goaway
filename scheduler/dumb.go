@@ -17,15 +17,21 @@ func GenerateRandomCluster() (cluster Cluster) {
 	r := rand.New(s1)
 
 	cluster.coupling = make([][]float64, deploymentCount)
+	cluster.placement = make([]*int, deploymentCount)
+	var databaseServer = 0
+	var databaseDeployment = 0
+	cluster.placement[databaseDeployment] = &databaseServer
+
+	serverI := 0
 
 	for i := 0; i < dataCenterCount; i++ {
 		dc := &DataCenter{i, []*Server{}}
 		dataCenters = append(dataCenters, dc)
 		cluster.dataCenter = append(cluster.dataCenter, dc)
 
-		for i := 0; i < serverCount/dataCenterCount; i++ {
+		for i := 0; i < serverCount/dataCenterCount; i, serverI = i+1 , serverI+1 {
 			cluster.addServer(&Server{
-				i,
+				serverI,
 				dc,
 				*list.New(),
 				20,
@@ -39,18 +45,29 @@ func GenerateRandomCluster() (cluster Cluster) {
 			1,
 			nil,
 		}
-		newPod := deployment.generateNewPod()
-		newPod.memoryUsage = uint(r.Intn(6)) + 1
-		cluster.deployments.PushFront(&deployment)
-		cluster.pods.PushFront(newPod)
-		deployment.podsHead = cluster.pods.Front()
+		if i == databaseDeployment {
+			pod := &Pod{
+				deployment.cluster,
+				&deployment,
+				cluster.servers[databaseServer],
+				0,
+			}
+			pod.server.pods.PushFront(pod)
 
-		cluster.coupling[i] = make([]float64, deploymentCount)
-		for j := 0; j < deploymentCount; j++ {
-			if r.Intn(5) == 0 || i == j {
-				cluster.coupling[i][j] = 0
-			} else {
-				cluster.coupling[i][j] = r.Float64()
+		} else {
+			newPod := deployment.generateNewPod()
+			newPod.memoryUsage = uint(r.Intn(6)) + 1
+			cluster.deployments.PushFront(&deployment)
+			cluster.pods.PushFront(newPod)
+			deployment.podsHead = cluster.pods.Front()
+
+			cluster.coupling[i] = make([]float64, deploymentCount)
+			for j := 0; j < deploymentCount; j++ {
+				if r.Intn(5) == 0 || i == j {
+					cluster.coupling[i][j] = 0
+				} else {
+					cluster.coupling[i][j] = r.Float64()
+				}
 			}
 		}
 	}
@@ -63,7 +80,7 @@ func ModelFactory(rng *rand.Rand) gago.Genome {
 	return Model{
 		cluster:     &cluster,
 		objectives:  []func(c *Cluster) float64{rpc},
-		constraints: []func(c *Cluster) bool{capacity},
+		constraints: []func(c *Cluster) bool{capacity, placement},
 	}
 }
 

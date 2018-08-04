@@ -29,6 +29,7 @@ func (d *Deployment) generateNewPod() *Pod {
 	server := d.cluster.getRandomServer()
 
 	pod := &Pod{
+		d.cluster,
 		d,
 		server,
 		0,
@@ -67,12 +68,19 @@ type Server struct {
 }
 
 type Pod struct {
+	cluster     *Cluster
 	deployment  *Deployment
 	server      *Server
 	memoryUsage uint
 }
 
 func (p *Pod) MigrateTo(server *Server) {
+	if p.cluster.placement[p.deployment.id] != nil {
+		if server.id != *p.cluster.placement[p.deployment.id] {
+			return // do not migrate if destination doesn't match placement constraint
+		}
+	}
+
 	for elem := p.server.pods.Front(); elem != nil; elem = elem.Next() {
 		if elem.Value.(*Pod) == p {
 			p.server.pods.Remove(elem)
@@ -89,6 +97,7 @@ type Cluster struct {
 	deployments list.List
 	servers     []*Server
 	coupling    [][]float64
+	placement   []*int
 }
 
 func (c *Cluster) getRandomServer() *Server {

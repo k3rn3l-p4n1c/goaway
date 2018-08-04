@@ -17,8 +17,7 @@ type Model struct {
 func (m Model) Evaluate() (value float64) {
 	value = bigValue
 	for _, constraint := range m.constraints {
-		if constraint(m.cluster) {
-			println("constrain failed")
+		if !constraint(m.cluster) {
 			return +1.0
 		}
 	}
