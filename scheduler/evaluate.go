@@ -1,5 +1,7 @@
 package scheduler
 
+// return value between 0 and 1. bigger is better
+
 func rpc(c *Cluster) float64 {
 	value := 1.0
 	for elem := c.pods.Front(); elem != nil; elem = elem.Next() {
@@ -17,6 +19,24 @@ func rpc(c *Cluster) float64 {
 				value *= 1 - (1-weigh)/100
 				break
 			}
+		}
+	}
+	return value
+}
+
+func utilization(c *Cluster) float64 {
+	value := 1.0
+
+	memoryUsage := make([]uint, len(c.servers))
+
+	for elem := c.pods.Front(); elem != nil; elem = elem.Next() {
+		pod := elem.Value.(*Pod)
+		memoryUsage[pod.server.id] += pod.memoryUsage
+	}
+
+	for i, server := range c.servers {
+		if memoryUsage[i] != 0 {
+			value *= float64(memoryUsage[i]) / float64(server.memoryCap)
 		}
 	}
 	return value
