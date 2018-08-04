@@ -2,112 +2,183 @@ package scheduler
 
 import (
 	"math/rand"
-	"github.com/MaxHalford/gago"
-	"fmt"
-	"container/list"
+	"github.com/MaxHalford/eaopt"
 	"time"
+	"fmt"
+	"github.com/beevik/guid"
 )
 
-func GenerateRandomCluster() (cluster Cluster) {
+func remove(s []string, v string) []string {
+	d := -1
+	for i, e := range s {
+		if e == v {
+			d = i
+			break
+		}
+	}
+	return append(s[:d], s[d+1:]...)
+}
+
+var databaseServer = 0
+var databaseDeployment = 0
+
+func GenerateRandomCluster() Cluster {
 	const dataCenterCount = 2
 	const serverCount = 6
-	const deploymentCount = 20
-	var dataCenters []*DataCenter
+	const deploymentCount = 10
 	s1 := rand.NewSource(time.Now().UnixNano())
 	r := rand.New(s1)
 
-	cluster.coupling = make([][]float64, deploymentCount)
-	cluster.placement = make([]*int, deploymentCount)
-	var databaseServer = 0
-	var databaseDeployment = 0
-	cluster.placement[databaseDeployment] = &databaseServer
-
-	serverI := 0
+	cluster := Cluster{
+		dataCenters: make([]DataCenter, dataCenterCount),
+		coupling:    make([][]float64, deploymentCount),
+		placement:   make([]int, deploymentCount),
+		servers:     make([]Server, serverCount),
+		deployments: make([]Deployment, deploymentCount),
+	}
+	for i := range cluster.placement {
+		cluster.placement[i] = -1
+	}
+	cluster.placement[databaseDeployment] = databaseServer
 
 	for i := 0; i < dataCenterCount; i++ {
-		dc := &DataCenter{i, []*Server{}}
-		dataCenters = append(dataCenters, dc)
-		cluster.dataCenter = append(cluster.dataCenter, dc)
-
-		for i := 0; i < serverCount/dataCenterCount; i, serverI = i+1 , serverI+1 {
-			cluster.addServer(&Server{
-				serverI,
-				dc,
-				*list.New(),
-				20,
-				8})
-		}
+		dc := DataCenter{i, []int{}}
+		cluster.dataCenters[i] = dc
 	}
+	for i := 0; i < serverCount; i++ {
+		dcId := r.Intn(len(cluster.dataCenters))
+		cluster.servers[i] = Server{
+			i,
+			dcId,
+			20,
+			8,
+		}
+		cluster.dataCenters[dcId].serverIds = append(cluster.dataCenters[dcId].serverIds, i)
+	}
+
 	for i := 0; i < deploymentCount; i++ {
-		deployment := Deployment{
+		cluster.deployments[i] = Deployment{
 			&cluster,
 			i,
-			1,
-			nil,
 		}
-		if i == databaseDeployment {
-			pod := &Pod{
-				deployment.cluster,
-				&deployment,
-				cluster.servers[databaseServer],
-				0,
-			}
-			pod.server.pods.PushFront(pod)
-
-		} else {
-			newPod := deployment.generateNewPod()
-			newPod.memoryUsage = uint(r.Intn(6)) + 1
-			cluster.deployments.PushFront(&deployment)
-			cluster.pods.PushFront(newPod)
-			deployment.podsHead = cluster.pods.Front()
-
-			cluster.coupling[i] = make([]float64, deploymentCount)
-			for j := 0; j < deploymentCount; j++ {
-				if r.Intn(5) == 0 || i == j {
-					cluster.coupling[i][j] = 0
-				} else {
-					cluster.coupling[i][j] = r.Float64()
-				}
+		cluster.coupling[i] = make([]float64, deploymentCount)
+		for j := 0; j < deploymentCount; j++ {
+			if r.Intn(5) == 0 || i == j {
+				cluster.coupling[i][j] = 0
+			} else {
+				cluster.coupling[i][j] = r.Float64()
 			}
 		}
 	}
 
-	return
+	return cluster
+}
+func GenerateRandomStack(c *Cluster) Stack {
+	s1 := rand.NewSource(time.Now().UnixNano())
+	r := rand.New(s1)
+
+	var stack = Stack{
+		cluster:     c,
+		pods:        map[string]Pod{},
+		replicaSets: make([]ReplicaSet, len(c.deployments)),
+	}
+
+	for i, d := range c.deployments {
+		replica := 1
+		stack.replicaSets[d.id] = ReplicaSet{
+			d.id,
+			replica,
+			[]string{},
+		}
+
+		for j := 0; j < replica; j++ {
+			var serverId int
+
+			if c.placement[i] != -1 {
+				serverId = c.placement[i]
+			} else {
+				serverId = stack.getRandomServer().id
+			}
+			pod := Pod{
+				guid.NewString(),
+				&stack,
+				d.id,
+				serverId,
+				uint(r.Intn(6) + 3),
+			}
+			stack.replicaSets[d.id].podIds = append(stack.replicaSets[d.id].podIds, pod.uuid) // add to replica set
+			stack.pods[pod.uuid] = pod                                                        // add to cluster
+
+		}
+	}
+	return stack
 }
 
-func ModelFactory(rng *rand.Rand) gago.Genome {
+func ModelFactory(_ *rand.Rand) eaopt.Genome {
 	cluster := GenerateRandomCluster()
+	stack := GenerateRandomStack(&cluster)
 	return Model{
-		cluster:     &cluster,
-		objectives:  []func(c *Cluster) float64{rpc},
-		constraints: []func(c *Cluster) bool{capacity, placement},
+		cluster: &cluster,
+		stack:   stack,
+
+		objectives:  []func(s *Stack, c *Cluster) float64{utilization, rpc},
+		constraints: []func(s *Stack, c *Cluster) bool{capacity, placement},
 	}
 }
 
 func Run() {
-	var ga = gago.Generational(ModelFactory)
-	ga.Initialize()
-
-	fmt.Printf("Best fitness at generation 0: %f\n", ga.HallOfFame[0].Fitness)
-	for i := 1; i < 20; i++ {
-		err := ga.Evolve()
-		if err != nil {
-			fmt.Println("Handle error!")
-		}
-		fmt.Printf("Best fitness at generation %d: %f\n", i, ga.HallOfFame[0].Fitness)
+	ga, err := eaopt.NewDefaultGAConfig().NewGA()
+	if err != nil {
+		fmt.Println(err)
+		return
 	}
-	c := ga.HallOfFame[0].Genome.(Model).cluster
-	for _, dc := range c.dataCenter {
-		fmt.Printf("Datacenter %d:\n", dc.id)
-		for _, server := range dc.servers {
-			fmt.Printf("\tServer %d: %d\n", server.id, server.pods.Len())
+
+	// Set the number of generations to run for
+	ga.NGenerations = 10
+
+	// Add a custom print function to track progress
+	ga.Callback = func(ga *eaopt.GA) {
+		fmt.Printf("Best fitness at generation %d: %f\n", ga.NGenerations, ga.HallOfFame[0].Fitness)
+	}
+
+	// Find an minimum
+	err = ga.Minimize(ModelFactory)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	model := ga.HallOfFame[0].Genome.(Model)
+	ga.HallOfFame[0].Evaluate()
+	fmt.Printf("Best fitness at last generation: %f\n", ga.HallOfFame[0].Fitness)
+	if v, e := ga.HallOfFame[0].Genome.Evaluate(); e == nil {
+		fmt.Printf("Best fitness at last generation: %f\n", v)
+	}
+
+	//c := GenerateRandomCluster()
+	//s := GenerateRandomStack(c)
+	//model := Model{
+	//	cluster: &c,
+	//	stack:   s,
+	//}
+	printCluster(model)
+}
+
+func printCluster(m Model) {
+	for _, dc := range m.cluster.dataCenters {
+		fmt.Printf("Datacenter #%d:\n", dc.id)
+		for _, serverId := range dc.serverIds {
+			server := m.cluster.servers[serverId]
+			fmt.Printf("\tServer %d:\n", serverId)
 			var sum uint
-			for elem := server.pods.Front(); elem != nil && elem.Value != nil; elem = elem.Next() {
-				pod := elem.Value.(*Pod)
-				sum += pod.memoryUsage
-				fmt.Printf("\t\tPod %d:\n", pod.deployment.id)
+			for _, pod := range m.stack.pods {
+				if pod.serverId == server.id {
+					sum += pod.memoryUsage
+					fmt.Printf("\t\tPod %d:\n", pod.deploymentId)
+				}
 			}
 			fmt.Printf("\tUtilization: %d of %d\n\n", sum, server.memoryCap)
 		}
 	}
+
 }

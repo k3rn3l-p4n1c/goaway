@@ -2,9 +2,15 @@
 
 
 [[projects]]
-  name = "github.com/MaxHalford/gago"
+  name = "github.com/MaxHalford/eaopt"
   packages = ["."]
-  revision = "6c17807002170d22f9726b6acd7420bbd46e7468"
+  revision = "2229c08204e221aab0bc8ca8d81120b28832be01"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/beevik/guid"
+  packages = ["."]
+  revision = "d0ea8faecee03ccdfb5ab8322d5d9037bb7af438"
 
 [[projects]]
   name = "github.com/inconshreveable/mousetrap"
@@ -34,7 +40,7 @@
   branch = "master"
   name = "golang.org/x/net"
   packages = ["context"]
-  revision = "1e491301e022f8f977054da4c2d852decd59571f"
+  revision = "f4c29de78a2a91c00474a2e689954305c350adf9"
 
 [[projects]]
   branch = "master"
@@ -45,6 +51,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "b306595cfeae11b99559a032c80dd7f65a672c4e66a531f63de0f82c6cc56250"
+  inputs-digest = "47e2332f09237e5e72aab3628eeba6c147606394f832971b3a420ceb97e25bbb"
   solver-name = "gps-cdcl"
   solver-version = 1

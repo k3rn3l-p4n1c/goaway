@@ -2,73 +2,92 @@ package scheduler
 
 import (
 	"math/rand"
-	"github.com/MaxHalford/gago"
-	"github.com/jinzhu/copier"
+	"github.com/MaxHalford/eaopt"
+	"reflect"
+	"math"
 )
 
-const bigValue = -100000
+const bigValue = -100000.0
 
 type Model struct {
 	cluster     *Cluster
-	objectives  []func(c *Cluster) float64
-	constraints []func(c *Cluster) bool
+	stack       Stack
+	objectives  []func(s *Stack, c *Cluster) float64
+	constraints []func(s *Stack, c *Cluster) bool
 }
 
-func (m Model) Evaluate() (value float64) {
-	value = bigValue
+func (m Model) Evaluate() (float64, error) {
+	value := bigValue
 	for _, constraint := range m.constraints {
-		if !constraint(m.cluster) {
-			return +1.0
+		if !constraint(&m.stack, m.cluster) {
+			return +1.0, nil
 		}
 	}
 
 	for _, objective := range m.objectives {
-		value *= objective(m.cluster)
+		value *= objective(&m.stack, m.cluster)
 	}
-	return value
+	return value, nil
 }
 
 func (m Model) Mutate(rng *rand.Rand) {
-	for elem := m.cluster.pods.Front(); elem != nil; elem = elem.Next() {
-		pod := elem.Value.(*Pod)
-		nextServerId := rng.Intn(len(m.cluster.servers) - 1)
-		pod.MigrateTo(m.cluster.servers[nextServerId])
-	}
-
-	for elem := m.cluster.deployments.Front(); elem != nil; elem = elem.Next() {
-		deployment := elem.Value.(*Deployment)
-		randomDiff := 3 - int(rng.Float32() * 6)
-		deployment.scale(deployment.replica + randomDiff)
-
-	}
+	m.stack = GenerateRandomStack(m.cluster)
 }
 
-func (m Model) Crossover(mate gago.Genome, rng *rand.Rand) {
+func (m Model) Crossover(mate eaopt.Genome, rng *rand.Rand) {
 	m2 := mate.(Model)
-	for e1, e2 := m.cluster.deployments.Front(), m2.cluster.deployments.Front();
-		e1 != nil && e2 != nil; e1, e2 = e1.Next(), e2.Next() {
+	for i := 0; i < len(m.cluster.deployments); i++ {
 		var p = rng.Float64()
-		d1, d2 := e1.Value.(*Deployment), e2.Value.(*Deployment)
-		d1.scale(int((p * float64(d1.replica)) + ((1 - p) * float64(d2.replica))))
-		d2.scale(int(((1 - p) * float64(d1.replica)) + (p * float64(d2.replica))))
+		d1, d2 := m.cluster.deployments[i], m2.cluster.deployments[i]
+		r1, r2 := m.stack.replicaSets[i], m.stack.replicaSets[i]
+		m.stack.scale(&d1, int((p*float64(r1.replica))+((1-p)*float64(r2.replica))))
+		m.stack.scale(&d2, int(((1-p)*float64(r1.replica))+(p*float64(r2.replica))))
 	}
 
-	for e1, e2 := m.cluster.pods.Front(), m2.cluster.pods.Front();
-		e1 != nil && e2 != nil; e1, e2 = e1.Next(), e2.Next() {
-		p1, p2 := e1.Value.(*Pod), e2.Value.(*Pod)
+	keys1 := reflect.ValueOf(m.stack.pods).MapKeys()
+	keys2 := reflect.ValueOf(m2.stack.pods).MapKeys()
+
+	for i := 0; i < int(math.Min(float64(len(keys1)), float64(len(keys2)))); i++ {
+		p1, p2 := m.stack.pods[keys1[i].String()], m2.stack.pods[keys2[i].String()]
 		if rng.Float64() > 0.8 {
-			s1, s2 := p1.server, p2.server
+			s1, s2 := p1.serverId, p2.serverId
 			p1.MigrateTo(s2)
 			p2.MigrateTo(s1)
 		}
 	}
-
 }
 
-func (m Model) Clone() gago.Genome {
-	var newIns = Model{}
-	copier.Copy(&newIns, &m)
-	return newIns
+func (m Model) Clone() eaopt.Genome {
+
+	var newStack = Stack{
+		cluster:     m.cluster,
+		pods:        make(map[string]Pod, len(m.stack.pods)),
+		replicaSets: make([]ReplicaSet, len(m.stack.replicaSets)),
+	}
+
+	for i, replicaSet := range m.stack.replicaSets {
+		newStack.replicaSets[i] = ReplicaSet{
+			deploymentId: replicaSet.deploymentId,
+			podIds:       replicaSet.podIds,
+			replica:      replicaSet.replica,
+		}
+	}
+
+	for podId, pod := range m.stack.pods {
+		newStack.pods[podId] = Pod{
+			stack:        &newStack,
+			deploymentId: pod.deploymentId,
+			memoryUsage:  pod.memoryUsage,
+			serverId:     pod.serverId,
+		}
+	}
+
+	return Model{
+		stack:       newStack,
+		cluster:     m.cluster,
+		constraints: m.constraints,
+		objectives:  m.objectives,
+	}
 
 }
 func (m Model) GetCluster() Cluster {

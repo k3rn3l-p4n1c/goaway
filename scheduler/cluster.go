@@ -1,110 +1,49 @@
 package scheduler
 
-import (
-	"container/list"
-	"math/rand"
-)
-
 type Evaluator func(m Cluster) float64
 
 type Deployment struct {
-	cluster  *Cluster
-	id       int
-	replica  int
-	podsHead *list.Element
-}
-
-func (d *Deployment) scaleDown() {
-	d.podsHead = d.podsHead.Next()
-	d.cluster.pods.Remove(d.podsHead.Prev())
-}
-
-func (d *Deployment) scaleUp() {
-	newPod := d.generateNewPod()
-	d.cluster.pods.InsertBefore(newPod, d.podsHead)
-	d.podsHead = d.podsHead.Prev()
-}
-
-func (d *Deployment) generateNewPod() *Pod {
-	server := d.cluster.getRandomServer()
-
-	pod := &Pod{
-		d.cluster,
-		d,
-		server,
-		0,
-	}
-	pod.server.pods.PushFront(pod)
-	return pod
-}
-
-func (d *Deployment) scale(replica int) {
-	if replica < 1 {
-		return
-	}
-
-	if d.replica > replica {
-		for i := 0; i < d.replica-replica; i++ {
-			d.scaleDown()
-		}
-	} else if d.replica < replica {
-		for i := 0; i < d.replica-replica; i++ {
-			d.scaleUp()
-		}
-	}
+	cluster *Cluster
+	id      int
 }
 
 type DataCenter struct {
-	id      int
-	servers []*Server
+	id        int
+	serverIds []int
 }
 
 type Server struct {
-	id         int
-	dataCenter *DataCenter
-	pods       list.List
-	memoryCap  uint
-	cpu        uint
-}
-
-type Pod struct {
-	cluster     *Cluster
-	deployment  *Deployment
-	server      *Server
-	memoryUsage uint
-}
-
-func (p *Pod) MigrateTo(server *Server) {
-	if p.cluster.placement[p.deployment.id] != nil {
-		if server.id != *p.cluster.placement[p.deployment.id] {
-			return // do not migrate if destination doesn't match placement constraint
-		}
-	}
-
-	for elem := p.server.pods.Front(); elem != nil; elem = elem.Next() {
-		if elem.Value.(*Pod) == p {
-			p.server.pods.Remove(elem)
-			break
-		}
-	}
-	p.server = server
-	p.server.pods.PushFront(p)
+	id           int
+	dataCenterId int
+	memoryCap    uint
+	cpu          uint
 }
 
 type Cluster struct {
-	dataCenter  []*DataCenter
-	pods        list.List
-	deployments list.List
-	servers     []*Server
+	dataCenters []DataCenter
+	deployments []Deployment
+	servers     []Server
 	coupling    [][]float64
-	placement   []*int
+	placement   []int
 }
 
-func (c *Cluster) getRandomServer() *Server {
-	serverCount := len(c.servers)
-	return c.servers[rand.Intn(serverCount)]
+func (s *Stack) getServerUsage(serverId int) (sum uint) {
+	for _, pod := range s.pods {
+		if pod.serverId == serverId {
+			sum += pod.memoryUsage
+		}
+	}
+	return sum
 }
-func (c *Cluster) addServer(server *Server) {
-	c.servers = append(c.servers, server)
-	server.dataCenter.servers = append(server.dataCenter.servers, server)
+func (s *Stack) getRandomServer() Server {
+	var minUsed Server
+	var minUsage uint = 100000
+	for _, server := range s.cluster.servers {
+		usage := s.getServerUsage(server.id)
+		if usage < minUsage {
+			minUsage = usage
+			minUsed = server
+		}
+	}
+	return minUsed
 }
