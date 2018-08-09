@@ -1,0 +1,27 @@
+services:
+  - name: download-service
+    docker-image: download:latest
+
+  - name: payment-service
+    docker-image: payment:latest
+
+  - name: bank-service
+    docker-image: bank:latest
+
+  - name: search-service
+    docker-image: search:latest
+
+  - name: elastic-search-db
+    docker-image: elastic:latest
+
+  - name: document-service
+    docker-image: document:latest
+
+  - name: mongo-db
+    docker-image: mongo:latest
+
+  - name: mainpage-service
+    docker-image: mainpage:latest
+
+  - name: iteminfo-service
+    docker-image: iteminfo:latest
