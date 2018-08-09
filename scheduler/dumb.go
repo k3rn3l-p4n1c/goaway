@@ -79,17 +79,19 @@ func GenerateRandomStack(c *Cluster) Stack {
 
 	var stack = Stack{
 		cluster:     c,
-		pods:        map[string]Pod{},
-		replicaSets: make([]ReplicaSet, len(c.deployments)),
+		pods:        map[string]*Pod{},
+		replicaSets: make([]*ReplicaSet, len(c.deployments)),
 	}
 
 	for i, d := range c.deployments {
 		replica := 1
-		stack.replicaSets[d.id] = ReplicaSet{
+		stack.replicaSets[d.id] = &ReplicaSet{
 			d.id,
 			replica,
 			[]string{},
 		}
+
+		memoryUsage := uint(r.Intn(6) + 3)
 
 		for j := 0; j < replica; j++ {
 			var serverId int
@@ -97,14 +99,14 @@ func GenerateRandomStack(c *Cluster) Stack {
 			if c.placement[i] != -1 {
 				serverId = c.placement[i]
 			} else {
-				serverId = stack.getRandomServer().id
+				serverId = stack.getFirstCapableServer(memoryUsage).id
 			}
-			pod := Pod{
+			pod := &Pod{
 				guid.NewString(),
 				&stack,
 				d.id,
 				serverId,
-				uint(r.Intn(6) + 3),
+				memoryUsage,
 			}
 			stack.replicaSets[d.id].podIds = append(stack.replicaSets[d.id].podIds, pod.uuid) // add to replica set
 			stack.pods[pod.uuid] = pod                                                        // add to cluster
@@ -134,7 +136,7 @@ func Run() {
 	}
 
 	// Set the number of generations to run for
-	ga.NGenerations = 10
+	ga.NGenerations = 20
 
 	// Add a custom print function to track progress
 	ga.Callback = func(ga *eaopt.GA) {

@@ -18,8 +18,8 @@ type Pod struct {
 
 type Stack struct {
 	cluster     *Cluster
-	pods        map[string]Pod
-	replicaSets []ReplicaSet
+	pods        map[string]*Pod
+	replicaSets []*ReplicaSet
 }
 
 func (s Stack) scaleDown(d *Deployment) {
@@ -37,7 +37,7 @@ func (s Stack) scaleUp(d *Deployment) {
 	newPod := s.generateNewPod(d)
 	rs := s.replicaSets[d.id]
 	rs.podIds = append(rs.podIds, newPod.uuid) // add to replica set
-	s.pods[newPod.uuid] = newPod           // add to stack
+	s.pods[newPod.uuid] = &newPod           // add to stack
 }
 
 func (s Stack) scale(d *Deployment, replica int) {

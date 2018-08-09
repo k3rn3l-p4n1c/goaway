@@ -47,3 +47,12 @@ func (s *Stack) getRandomServer() Server {
 	}
 	return minUsed
 }
+
+func (s *Stack) getFirstCapableServer(cap uint) *Server {
+	for _, server := range s.cluster.servers {
+		if server.memoryCap - s.getServerUsage(server.id) > cap {
+			return &server
+		}
+	}
+	return nil
+}
