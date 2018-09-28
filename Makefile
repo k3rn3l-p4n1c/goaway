@@ -4,7 +4,7 @@ ROOT := github.com/k3rn3l-p4n1c/goaway
 
 
 ## Commons Vars ##########################################################
-GO_VARS = ENABLE_CGO=0
+GO_VARS = ENABLE_CGO=1
 GO ?= go
 GIT ?= git
 COMMIT := $(shell $(GIT) rev-parse HEAD)
@@ -14,8 +14,12 @@ ROOT_DIRECTORY := $(shell pwd)
 LD_FLAGS := -X $(ROOT).Version=$(VERSION) -X $(ROOT).Commit=$(COMMIT) -X $(ROOT).BuildTime=$(BUILD_TIME) -X $(ROOT).RootDirectory=$(ROOT_DIRECTORY) -X $(ROOT).Title=goaway
 
 
-goawayd: *.go */*.go  Gopkg.lock
-	$(GO_VARS) $(GO) build -i -o="goawayd" -ldflags="$(LD_FLAGS)" $(ROOT)/cmd
+goawayd:
+	$(GO_VARS) $(GO) build -i -o="goawayd" -ldflags="$(LD_FLAGS)" daemon/main.go
+	chmod +x goawayd
+
+goaway:
+	$(GO_VARS) $(GO) build -i -o="goaway" -ldflags="$(LD_FLAGS)" ctl/main.go
 	chmod +x goawayd
 
 clean:

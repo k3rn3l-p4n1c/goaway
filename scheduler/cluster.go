@@ -1,5 +1,19 @@
 package scheduler
 
+import (
+	"errors"
+	"net"
+)
+
+type NodeState int
+
+const (
+	Idle NodeState = iota
+	Starting
+	Healthy
+	Unhealthy
+)
+
 type Evaluator func(m Cluster) float64
 
 type Deployment struct {
@@ -9,14 +23,18 @@ type Deployment struct {
 
 type DataCenter struct {
 	id        int
+	name      string
 	serverIds []int
 }
 
 type Server struct {
 	id           int
 	dataCenterId int
-	memoryCap    uint
+	memoryCap    uint64
 	cpu          uint
+	ip           net.IP
+	name         string
+	state        NodeState
 }
 
 type Cluster struct {
@@ -27,32 +45,74 @@ type Cluster struct {
 	placement   []int
 }
 
-func (s *Stack) getServerUsage(serverId int) (sum uint) {
-	for _, pod := range s.pods {
-		if pod.serverId == serverId {
-			sum += pod.memoryUsage
+func (cluster *Cluster) findDataCenterByName(name string) (*DataCenter, error) {
+	for _, dataCenter := range cluster.dataCenters {
+		if dataCenter.name == name {
+			return &dataCenter, nil
 		}
 	}
-	return sum
-}
-func (s *Stack) getRandomServer() Server {
-	var minUsed Server
-	var minUsage uint = 100000
-	for _, server := range s.cluster.servers {
-		usage := s.getServerUsage(server.id)
-		if usage < minUsage {
-			minUsage = usage
-			minUsed = server
-		}
-	}
-	return minUsed
+	return nil, errors.New("data center named `" + name + "` not found")
 }
 
-func (s *Stack) getFirstCapableServer(cap uint) *Server {
-	for _, server := range s.cluster.servers {
-		if server.memoryCap - s.getServerUsage(server.id) > cap {
-			return &server
+func (cluster *Cluster) findServerByIp(ip net.IP) (*Server, error) {
+	for _, server := range cluster.servers {
+		if server.ip.Equal(ip) {
+			return &server, nil
 		}
 	}
+	return nil, errors.New("server with ip <" + ip.String() + "> not found")
+}
+
+func (cluster *Cluster) AddOrUpdateServer(name, dataCenterName string, memoryCap uint64, ip net.IP) error {
+	var lastId int
+	if len(cluster.servers) == 0 {
+		lastId = 0
+	} else {
+		lastId = cluster.servers[len(cluster.servers)-1].id
+	}
+	dataCenter, err := cluster.findDataCenterByName(dataCenterName)
+	if err != nil {
+		return err
+	}
+
+	server, _ := cluster.findServerByIp(ip)
+
+	newServer := Server{
+		id:           lastId + 1,
+		dataCenterId: dataCenter.id,
+		memoryCap:    memoryCap,
+		ip:           ip,
+		name:         name,
+		state:        Healthy, // todo
+	}
+	if server == nil {
+		cluster.servers = append(cluster.servers, newServer)
+	} else {
+		cluster.servers[server.id] = newServer
+	}
+
+	return nil
+}
+
+func (cluster *Cluster) AddOrUpdateDataCenter(name string) error {
+	var lastId int
+	if len(cluster.dataCenters) == 0 {
+		lastId = 0
+	} else {
+		lastId = cluster.dataCenters[len(cluster.dataCenters)-1].id
+	}
+	dataCenter, _ := cluster.findDataCenterByName(name)
+
+	newDataCenter := DataCenter{
+		id:        lastId + 1,
+		name:      name,
+		serverIds: []int{},
+	}
+	if dataCenter == nil {
+		cluster.dataCenters = append(cluster.dataCenters, newDataCenter)
+	} else {
+		cluster.dataCenters[dataCenter.id] = newDataCenter
+	}
+
 	return nil
 }

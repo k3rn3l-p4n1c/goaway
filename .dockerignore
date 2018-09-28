@@ -14,7 +14,8 @@
 .glide/
 .idea
 /default.storage/
-/vendor/
-goaway
+goawayd
 .vagrant/
 Vagrantfile
+docker-compose.yml
+Dockerfile

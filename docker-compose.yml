@@ -1,0 +1,43 @@
+version: "3"
+
+services:
+  node1:
+    build: .
+    networks:
+      backend:
+        ipv4_address: 10.0.0.2
+    environment:
+      - HOST_IP=10.0.0.2
+      - HOST_NAME=adam
+    command: ./goawayd --bootstrap run
+
+  node2:
+    build: .
+    depends_on:
+      - node1
+    networks:
+      backend:
+         ipv4_address: 10.0.0.3
+    environment:
+      - HOST_IP=10.0.0.3
+      - HOST_NAME=eve
+    command: ./goawayd --join=10.0.0.2 run
+
+  node3:
+    build: .
+    depends_on:
+      - node2
+    networks:
+      backend:
+         ipv4_address: 10.0.0.4
+    environment:
+      - HOST_IP=10.0.0.4
+      - HOST_NAME=eve2
+    command: ./goawayd --join=10.0.0.2 run
+
+networks:
+  backend:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.0.0.0/16

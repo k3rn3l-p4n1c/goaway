@@ -1,0 +1,15 @@
+debug: true
+
+name: "goaway"
+
+node:
+  ip: "127.0.0.1"
+  datacenter: "dc1"
+  name: "king"
+
+master:
+  bootstrap: true
+  name: "master"
+
+slave:
+  join: "127.0.0.1"

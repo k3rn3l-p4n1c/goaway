@@ -26,7 +26,7 @@ func rpc(s *Stack, c *Cluster) float64 {
 func utilization(s *Stack, c *Cluster) float64 {
 	value := 1.0
 
-	memoryUsage := make([]uint, len(c.servers))
+	memoryUsage := make([]uint64, len(c.servers))
 
 	for _, pod := range s.pods {
 		memoryUsage[pod.serverId] += pod.memoryUsage

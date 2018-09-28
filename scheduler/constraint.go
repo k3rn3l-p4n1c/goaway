@@ -1,10 +1,9 @@
 package scheduler
 
-
 func capacity(s *Stack, c *Cluster) bool {
-	memoryUsage := make([]uint, len(c.servers))
+	memoryUsage := make([]uint64, len(c.servers))
 
-	for _, pod := range s.pods{
+	for _, pod := range s.pods {
 		memoryUsage[pod.serverId] += pod.memoryUsage
 
 	}
@@ -18,9 +17,9 @@ func capacity(s *Stack, c *Cluster) bool {
 }
 
 func placement(s *Stack, c *Cluster) bool {
-	for _, pod := range s.pods{
+	for _, pod := range s.pods {
 		if c.placement[pod.deploymentId] != -1 {
-			if pod.serverId != c.placement[pod.deploymentId]{
+			if pod.serverId != c.placement[pod.deploymentId] {
 				return false
 			}
 		}

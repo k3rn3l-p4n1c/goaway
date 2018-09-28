@@ -1,23 +1,13 @@
 package scheduler
 
 import (
-	"math/rand"
-	"github.com/MaxHalford/eaopt"
-	"time"
 	"fmt"
+	"github.com/MaxHalford/eaopt"
 	"github.com/beevik/guid"
+	"math/rand"
+	"net"
+	"time"
 )
-
-func remove(s []string, v string) []string {
-	d := -1
-	for i, e := range s {
-		if e == v {
-			d = i
-			break
-		}
-	}
-	return append(s[:d], s[d+1:]...)
-}
 
 var databaseServer = 0
 var databaseDeployment = 0
@@ -42,7 +32,7 @@ func GenerateRandomCluster() Cluster {
 	cluster.placement[databaseDeployment] = databaseServer
 
 	for i := 0; i < dataCenterCount; i++ {
-		dc := DataCenter{i, []int{}}
+		dc := DataCenter{i, fmt.Sprintf("dc-%d", i), []int{}}
 		cluster.dataCenters[i] = dc
 	}
 	for i := 0; i < serverCount; i++ {
@@ -52,6 +42,9 @@ func GenerateRandomCluster() Cluster {
 			dcId,
 			20,
 			8,
+			net.ParseIP(fmt.Sprintf("192.168.0.%d", i)),
+			fmt.Sprintf("server-%d", i),
+			Healthy,
 		}
 		cluster.dataCenters[dcId].serverIds = append(cluster.dataCenters[dcId].serverIds, i)
 	}
@@ -91,7 +84,7 @@ func GenerateRandomStack(c *Cluster) Stack {
 			[]string{},
 		}
 
-		memoryUsage := uint(r.Intn(6) + 3)
+		memoryUsage := uint64(r.Intn(6) + 3)
 
 		for j := 0; j < replica; j++ {
 			var serverId int
@@ -172,7 +165,7 @@ func printCluster(m Model) {
 		for _, serverId := range dc.serverIds {
 			server := m.cluster.servers[serverId]
 			fmt.Printf("\tServer %d:\n", serverId)
-			var sum uint
+			var sum uint64
 			for _, pod := range m.stack.pods {
 				if pod.serverId == server.id {
 					sum += pod.memoryUsage
