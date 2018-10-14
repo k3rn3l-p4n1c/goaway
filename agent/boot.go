@@ -4,6 +4,7 @@ import (
 	"github.com/k3rn3l-p4n1c/entanglement"
 	"github.com/k3rn3l-p4n1c/goaway/configuration"
 	"github.com/sirupsen/logrus"
+	"github.com/k3rn3l-p4n1c/goaway/scheduler"
 )
 
 var (
@@ -13,6 +14,8 @@ var (
 
 type Agent struct {
 	ProjectName *entanglement.Entanglement
+	Cluster     *scheduler.Cluster
+	Stack       *scheduler.Stack
 }
 
 func Start() {

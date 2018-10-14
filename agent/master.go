@@ -25,6 +25,7 @@ func StartMaster(conf *viper.Viper) error {
 
 	system := entanglement.Bootstrap(entangleConf)
 	instance = &Agent{
+		Cluster: nil,
 		ProjectName: system.New("projectName"),
 	}
 
@@ -42,6 +43,7 @@ func StartMaster(conf *viper.Viper) error {
 		logrus.WithError(err).Fatal("unable to register self in cluster")
 		return err
 	}
+	instance.Cluster = cluster
 	GetInstance().ProjectName.Set(conf.GetString("name"))
 	return nil
 }

@@ -14,7 +14,7 @@ var upCmd = &cobra.Command{
 
 		var (
 			addr     = "/tmp/goaway.sock"
-			request  = &core.Request{Name: ""}
+			request  = &core.Request{Command: ""}
 			response = new(core.Response)
 		)
 

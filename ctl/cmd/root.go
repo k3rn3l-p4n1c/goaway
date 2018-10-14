@@ -35,7 +35,7 @@ var getCmd = &cobra.Command{
 
 		var (
 			addr     = "/tmp/goaway.sock"
-			request  = &core.Request{Name: ""}
+			request  = &core.Request{Command: ""}
 			response = new(core.Response)
 		)
 		// Establish the connection to the adddress of the
@@ -66,7 +66,7 @@ var setCmd = &cobra.Command{
 
 		var (
 			addr     = "/tmp/goaway.sock"
-			request  = &core.Request{Name: args[0]}
+			request  = &core.Request{Command: args[0]}
 			response = new(core.Response)
 		)
 		// Establish the connection to the adddress of the
@@ -91,11 +91,11 @@ var setCmd = &cobra.Command{
 }
 
 func init() {
-	RootCmd.AddCommand(optimizeCmd)
 	RootCmd.AddCommand(upCmd)
 	RootCmd.AddCommand(getCmd)
 	RootCmd.AddCommand(setCmd)
 	RootCmd.AddCommand(version.Cmd)
+	RootCmd.AddCommand(stackCmd)
 
 	viper.BindPFlag("master.bootstrap", upCmd.PersistentFlags().Lookup("bootstrap"))
 	viper.BindPFlag("slave.join", upCmd.Flags().Lookup("join"))

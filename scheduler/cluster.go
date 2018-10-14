@@ -64,11 +64,11 @@ func (cluster *Cluster) findServerByIp(ip net.IP) (*Server, error) {
 }
 
 func (cluster *Cluster) AddOrUpdateServer(name, dataCenterName string, memoryCap uint64, ip net.IP) error {
-	var lastId int
+	var newId int
 	if len(cluster.servers) == 0 {
-		lastId = 0
+		newId = 0
 	} else {
-		lastId = cluster.servers[len(cluster.servers)-1].id
+		newId = cluster.servers[len(cluster.servers)-1].id + 1
 	}
 	dataCenter, err := cluster.findDataCenterByName(dataCenterName)
 	if err != nil {
@@ -78,7 +78,7 @@ func (cluster *Cluster) AddOrUpdateServer(name, dataCenterName string, memoryCap
 	server, _ := cluster.findServerByIp(ip)
 
 	newServer := Server{
-		id:           lastId + 1,
+		id:           newId,
 		dataCenterId: dataCenter.id,
 		memoryCap:    memoryCap,
 		ip:           ip,
@@ -87,6 +87,7 @@ func (cluster *Cluster) AddOrUpdateServer(name, dataCenterName string, memoryCap
 	}
 	if server == nil {
 		cluster.servers = append(cluster.servers, newServer)
+		dataCenter.serverIds = append(dataCenter.serverIds, newId)
 	} else {
 		cluster.servers[server.id] = newServer
 	}
@@ -115,4 +116,12 @@ func (cluster *Cluster) AddOrUpdateDataCenter(name string) error {
 	}
 
 	return nil
+}
+
+func (cluster *Cluster) AddOrUpdateDeployment(id int) {
+	cluster.placement = append(cluster.placement, -1) // todo
+	cluster.deployments = append(cluster.deployments, Deployment{
+		cluster: cluster,
+		id: id,
+	})
 }

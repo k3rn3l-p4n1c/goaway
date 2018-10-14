@@ -92,7 +92,11 @@ func GenerateRandomStack(c *Cluster) Stack {
 			if c.placement[i] != -1 {
 				serverId = c.placement[i]
 			} else {
-				serverId = stack.getFirstCapableServer(memoryUsage).id
+				if server := stack.getFirstCapableServer(memoryUsage); server != nil {
+					serverId = server.id
+				} else {
+					serverId = stack.getRandomServer().id
+				}
 			}
 			pod := &Pod{
 				guid.NewString(),
@@ -103,25 +107,12 @@ func GenerateRandomStack(c *Cluster) Stack {
 			}
 			stack.replicaSets[d.id].podIds = append(stack.replicaSets[d.id].podIds, pod.uuid) // add to replica set
 			stack.pods[pod.uuid] = pod                                                        // add to cluster
-
 		}
 	}
 	return stack
 }
 
-func ModelFactory(_ *rand.Rand) eaopt.Genome {
-	cluster := GenerateRandomCluster()
-	stack := GenerateRandomStack(&cluster)
-	return Model{
-		cluster: &cluster,
-		stack:   stack,
-
-		objectives:  []func(s *Stack, c *Cluster) float64{utilization, rpc},
-		constraints: []func(s *Stack, c *Cluster) bool{capacity, placement},
-	}
-}
-
-func Run() {
+func Run(cluster *Cluster, stack *Stack) (res string) {
 	ga, err := eaopt.NewDefaultGAConfig().NewGA()
 	if err != nil {
 		fmt.Println(err)
@@ -133,11 +124,20 @@ func Run() {
 
 	// Add a custom print function to track progress
 	ga.Callback = func(ga *eaopt.GA) {
-		fmt.Printf("Best fitness at generation %d: %f\n", ga.NGenerations, ga.HallOfFame[0].Fitness)
+		res += fmt.Sprintf("Best fitness at generation %d: %f\n", ga.NGenerations, ga.HallOfFame[0].Fitness)
 	}
 
 	// Find an minimum
-	err = ga.Minimize(ModelFactory)
+	err = ga.Minimize(func(_ *rand.Rand) eaopt.Genome {
+		return Model{
+			cluster: cluster,
+			stack:   *stack,
+
+			objectives:  []func(s *Stack, c *Cluster) float64{utilization, rpc},
+			constraints: []func(s *Stack, c *Cluster) bool{capacity, placement},
+		}
+
+	})
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -145,35 +145,30 @@ func Run() {
 
 	model := ga.HallOfFame[0].Genome.(Model)
 	ga.HallOfFame[0].Evaluate()
-	fmt.Printf("Best fitness at last generation: %f\n", ga.HallOfFame[0].Fitness)
+	res += fmt.Sprintf("Best fitness at last generation: %f\n", ga.HallOfFame[0].Fitness)
 	if v, e := ga.HallOfFame[0].Genome.Evaluate(); e == nil {
-		fmt.Printf("Best fitness at last generation: %f\n", v)
+		res += fmt.Sprintf("Best fitness at last generation: %f\n", v)
 	}
 
-	//c := GenerateRandomCluster()
-	//s := GenerateRandomStack(c)
-	//model := Model{
-	//	cluster: &c,
-	//	stack:   s,
-	//}
-	printCluster(model)
+	res += "\n\n" + formatCluster(model)
+	return
 }
 
-func printCluster(m Model) {
+func formatCluster(m Model) (res string) {
 	for _, dc := range m.cluster.dataCenters {
-		fmt.Printf("Datacenter #%d:\n", dc.id)
+		res += fmt.Sprintf("Datacenter #%d:\n", dc.id)
 		for _, serverId := range dc.serverIds {
 			server := m.cluster.servers[serverId]
-			fmt.Printf("\tServer %d:\n", serverId)
+			res += fmt.Sprintf("\tServer %d:\n", serverId)
 			var sum uint64
 			for _, pod := range m.stack.pods {
 				if pod.serverId == server.id {
 					sum += pod.memoryUsage
-					fmt.Printf("\t\tPod %d:\n", pod.deploymentId)
+					res += fmt.Sprintf("\t\tPod %d:\n", pod.deploymentId)
 				}
 			}
-			fmt.Printf("\tUtilization: %d of %d\n\n", sum, server.memoryCap)
+			res += fmt.Sprintf("\tUtilization: %d of %d\n\n", sum, server.memoryCap)
 		}
 	}
-
+	return
 }
